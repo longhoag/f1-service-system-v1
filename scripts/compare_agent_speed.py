@@ -1,14 +1,24 @@
 """
-Quick speed comparison: GPT-4o vs GPT-5 Mini
-Shows why GPT-4o is better for production (3x faster)
+Compare agent speed across different OpenAI models.
+Tests GPT-4o vs GPT-5 Mini performance.
 """
+
+import sys
+import os
+import time
+from typing import Dict, Any
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.agents.orchestrator import Orchestrator
 
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import time
-from src.agents.gpt5_agent import GPT5Agent
+from src.agents.orchestrator import Orchestrator
 from src.config.settings import settings
 from loguru import logger
 
@@ -29,11 +39,11 @@ def test_speed(model_name: str, query: str):
     settings.openai_model = model_name
     
     # Create fresh agent instance
-    from src.agents.gpt5_agent import _gpt5_agent_instance
-    import src.agents.gpt5_agent as agent_module
-    agent_module._gpt5_agent_instance = None
+    from src.agents.orchestrator import _orchestrator_instance
+    import src.agents.orchestrator as agent_module
+    agent_module._orchestrator_instance = None
     
-    agent = GPT5Agent()
+    agent = Orchestrator()
     
     start = time.time()
     result = agent.process_query(query)

@@ -1,4 +1,5 @@
-"""
+
+    llm = ChatOpenAI(model="gpt-4o-mini").bind_tools([get_current_time, tavily_tool])"""
 F1 Regulations RAG tool.
 
 Uses AWS Bedrock Knowledge Base RetrieveAndGenerate API.

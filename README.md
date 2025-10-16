@@ -111,9 +111,9 @@ Total: 7/7 tests passed (100%)
 
 ### Circuit Queries
 ```python
-from src.agents.gpt5_agent import get_gpt5_agent
+from src.agents.orchestrator import get_orchestrator
 
-agent = get_gpt5_agent()
+agent = get_orchestrator()
 
 # Simple circuit query
 result = agent.process_query("Show me the Monaco circuit")

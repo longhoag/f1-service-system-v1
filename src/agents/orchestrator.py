@@ -1,323 +1,350 @@
 """
-F1 Agent Orchestrator using LangGraph.
-Routes queries to appropriate tools (Circuit Retrieval or Regulations RAG).
-Implements LangSmith tracing for full observability.
+F1 Agent Orchestrator with OpenAI Tool Calling.
+Intelligent agent that binds tools for:
+- Circuit image retrieval
+- F1 regulations queries via Bedrock
+
+No hardcoded routing or aliases - LLM understands queries naturally.
+Supports both GPT-4o and GPT-5 Mini models.
 """
 
-from typing import Dict, Any, TypedDict, Annotated, Literal
-import operator
+import json
+from typing import Dict, Any, List, Optional
 from loguru import logger
 from langsmith import traceable
-from langgraph.graph import StateGraph, END
-from langchain_core.messages import HumanMessage, SystemMessage
+from openai import OpenAI
 
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
+from src.config.settings import settings
 from src.tools.circuit_retrieval import get_circuit_retrieval
 from src.tools.regulations_rag import get_regulations_rag
-from src.utils.logger import setup_logger
 
 
-# Define agent state
-class AgentState(TypedDict):
-    """State for the F1 agent orchestrator."""
-    query: str
-    intent: str
-    circuit_result: Dict[str, Any]
-    regulations_result: Dict[str, Any]
-    final_response: str
-    messages: Annotated[list, operator.add]
-
-
-class F1AgentOrchestrator:
+class Orchestrator:
     """
-    LangGraph-based orchestrator for F1 information queries.
-    Routes queries to circuit retrieval or regulations RAG tools.
+    F1 agent orchestrator with tool calling for intelligent query routing.
+    
+    Uses OpenAI function calling to intelligently route queries to:
+    - get_circuit_image: Retrieve F1 circuit map images
+    - query_regulations: Query F1 regulations via AWS Bedrock
+    
+    No hardcoded logic - agent decides which tools to use based on query.
     """
 
     def __init__(self):
-        """Initialize the orchestrator with tools and LangGraph workflow."""
-        logger.info("Initializing F1 Agent Orchestrator")
+        """Initialize orchestrator agent with tools."""
+        logger.info("Initializing F1 Orchestrator Agent with tool calling")
+        
+        # Initialize OpenAI client
+        self.client = OpenAI(api_key=settings.openai_api_key)
+        self.model = settings.openai_model
+        logger.info(f"  • Model: {self.model}")
         
         # Initialize tools
         try:
             self.circuit_tool = get_circuit_retrieval()
-            logger.info("✓ Circuit retrieval tool initialized")
+            logger.info("  ✓ Circuit retrieval tool loaded")
         except Exception as e:
             logger.error(f"Failed to initialize circuit tool: {e}")
             raise
         
         try:
             self.regulations_tool = get_regulations_rag()
-            logger.info("✓ Regulations RAG tool initialized")
+            logger.info("  ✓ Regulations RAG tool loaded")
         except Exception as e:
             logger.error(f"Failed to initialize regulations tool: {e}")
             raise
         
-        # Build LangGraph workflow
-        try:
-            self.app = self._build_graph()
-            logger.info("✓ LangGraph workflow compiled")
-        except Exception as e:
-            logger.error(f"Failed to build graph: {e}")
-            raise
+        # Define tool schemas for OpenAI function calling
+        self.tools = self._define_tools()
+        logger.info(f"  ✓ {len(self.tools)} tools bound to agent")
         
-        logger.success("F1 Agent Orchestrator initialized with LangGraph")
+        logger.success("F1 Orchestrator Agent initialized")
 
-    def _build_graph(self) -> StateGraph:
-        """Build the LangGraph state machine for query routing."""
-        logger.info("Building LangGraph workflow...")
+    def _define_tools(self) -> List[Dict[str, Any]]:
+        """
+        Define OpenAI function calling schemas for available tools.
         
-        # Create graph
-        workflow = StateGraph(AgentState)
-        logger.debug("✓ StateGraph created")
+        Returns:
+            List of tool definitions in OpenAI format
+        """
+        # Get available circuits for description
+        available_circuits = self.circuit_tool.list_available_circuits()
+        circuits_str = ", ".join(available_circuits[:10]) + "..."
         
-        # Add nodes
-        workflow.add_node("classify_intent", self.classify_intent)
-        workflow.add_node("execute_circuit", self.execute_circuit)
-        workflow.add_node("execute_regulations", self.execute_regulations)
-        workflow.add_node("synthesize_response", self.synthesize_response)
-        logger.debug("✓ Nodes added")
-        
-        # Set entry point
-        workflow.set_entry_point("classify_intent")
-        logger.debug("✓ Entry point set")
-        
-        # Add conditional routing
-        workflow.add_conditional_edges(
-            "classify_intent",
-            self.route_query,
+        return [
             {
-                "circuit": "execute_circuit",
-                "regulations": "execute_regulations",
-                "both": "execute_circuit",
-                "unknown": "synthesize_response"
-            }
-        )
-        
-        workflow.add_conditional_edges(
-            "execute_circuit",
-            lambda state: "regulations" if state["intent"] == "both" else "synthesize",
+                "type": "function",
+                "function": {
+                    "name": "get_circuit_image",
+                    "description": (
+                        f"Get F1 circuit map image. Available: {circuits_str}. "
+                        f"Returns .webp image path. Use for queries like 'show Monaco', 'display Vegas circuit'. "
+                        f"Pass location as: Monaco, Las_Vegas, Great_Britain, USA (for COTA), etc."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "Circuit name: Monaco, Las_Vegas, Great_Britain, USA, etc."
+                            }
+                        },
+                        "required": ["location"]
+                    }
+                }
+            },
             {
-                "regulations": "execute_regulations",
-                "synthesize": "synthesize_response"
-            }
-        )
-        
-        workflow.add_edge("execute_regulations", "synthesize_response")
-        workflow.add_edge("synthesize_response", END)
-        logger.debug("✓ Edges configured")
-        
-        compiled_graph = workflow.compile()
-        logger.debug(f"✓ Graph compiled: {type(compiled_graph)}")
-        
-        return compiled_graph
-
-    @traceable(name="classify_intent", tags=["orchestrator", "classification"])
-    def classify_intent(self, state: AgentState) -> AgentState:
-        """Classify user query intent."""
-        query = state["query"].lower()
-        logger.info(f"Classifying intent for: '{state['query']}'")
-        
-        circuit_keywords = ["circuit", "track", "map", "layout", "show"]
-        regulations_keywords = [
-            "rule", "regulation", "penalty", "point", "what", "how",
-            "explain", "when", "article", "drs", "safety"
-        ]
-        
-        has_circuit = any(kw in query for kw in circuit_keywords)
-        has_regulations = any(kw in query for kw in regulations_keywords)
-        
-        # Check for circuit location mentions
-        circuit_locations = [
-            loc.lower().replace('_', ' ')
-            for loc in self.circuit_tool.CIRCUIT_LOCATIONS
-        ]
-        has_location = any(loc in query for loc in circuit_locations)
-        
-        if has_circuit or has_location:
-            intent = "both" if has_regulations else "circuit"
-        elif has_regulations:
-            intent = "regulations"
-        else:
-            intent = "regulations"  # Default
-        
-        logger.info(f"Intent classified as: {intent}")
-        state["intent"] = intent
-        state["messages"].append(SystemMessage(content=f"Intent: {intent}"))
-        
-        return state
-
-    def route_query(
-        self, state: AgentState
-    ) -> Literal["circuit", "regulations", "both", "unknown"]:
-        """Route based on classified intent."""
-        return state["intent"]
-
-    @traceable(name="execute_circuit", tags=["orchestrator", "circuit"])
-    def execute_circuit(self, state: AgentState) -> AgentState:
-        """Execute circuit image retrieval."""
-        logger.info("Executing circuit retrieval")
-        
-        try:
-            result = self.circuit_tool.get_circuit_image(state["query"])
-            state["circuit_result"] = result
-            logger.info(f"Circuit status: {result.get('metadata', {}).get('status')}")
-        except Exception as e:
-            logger.error(f"Circuit retrieval failed: {e}")
-            state["circuit_result"] = {
-                "type": "error",
-                "content": str(e),
-                "metadata": {"error": str(e)}
-            }
-        
-        return state
-
-    @traceable(name="execute_regulations", tags=["orchestrator", "regulations"])
-    def execute_regulations(self, state: AgentState) -> AgentState:
-        """Execute regulations RAG query."""
-        logger.info("Executing regulations RAG")
-        
-        try:
-            result = self.regulations_tool.query_regulations(state["query"])
-            state["regulations_result"] = result
-            logger.info(f"Regulations status: {result.get('metadata', {}).get('status')}")
-        except Exception as e:
-            logger.error(f"Regulations query failed: {e}")
-            state["regulations_result"] = {
-                "type": "error",
-                "content": str(e),
-                "metadata": {"error": str(e)}
-            }
-        
-        return state
-
-    @traceable(name="synthesize_response", tags=["orchestrator", "synthesis"])
-    def synthesize_response(self, state: AgentState) -> AgentState:
-        """Synthesize final response from tool results."""
-        logger.info(f"Synthesizing response for intent: {state['intent']}")
-        
-        intent = state["intent"]
-        
-        if intent == "circuit":
-            result = state.get("circuit_result", {})
-            if result.get("type") == "image":
-                state["final_response"] = {
-                    "type": "image",
-                    "content": result["content"],
-                    "message": f"Circuit map: {result['metadata']['location']}",
-                    "metadata": result["metadata"]
+                "type": "function",
+                "function": {
+                    "name": "query_regulations",
+                    "description": (
+                        "Query FIA F1 regulations. Use for rules, points, DRS, safety car, penalties, etc. "
+                        "Returns official FIA regulation text with citations. Fast: 4-5s response."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "Regulation question (e.g., 'points for 1st', 'DRS rules')"
+                            }
+                        },
+                        "required": ["question"]
+                    }
                 }
-            else:
-                state["final_response"] = {
-                    "type": "text",
-                    "content": result.get("content", "Could not retrieve circuit."),
-                    "metadata": result.get("metadata", {})
-                }
-        elif intent == "regulations":
-            result = state.get("regulations_result", {})
-            state["final_response"] = {
-                "type": "text",
-                "content": result.get("content", "No response generated."),
-                "metadata": result.get("metadata", {})
             }
-        elif intent == "both":
-            state["final_response"] = {
-                "type": "combined",
-                "circuit": state.get("circuit_result", {}),
-                "regulations": state.get("regulations_result", {}),
-                "message": "Here's the information you requested:"
-            }
-        else:
-            state["final_response"] = {
-                "type": "text",
-                "content": "I can help with F1 circuit maps or regulations questions."
-            }
-        
-        return state
+        ]
 
-    @traceable(name="process_query", tags=["orchestrator", "main"])
+    @traceable(name="gpt5_agent_query", tags=["agent", "gpt5", "tool-calling"])
     def process_query(self, query: str) -> Dict[str, Any]:
         """
-        Main entry point for processing user queries.
+        Process user query using GPT-5 Mini with tool calling.
+        
+        Agent decides which tools to call based on query understanding.
+        No hardcoded routing logic - pure AI reasoning.
         
         Args:
-            query: User's F1 query
+            query: User's F1 information query
             
         Returns:
-            Response dict with results from appropriate tools
+            Dict with response, tools_used, and metadata
         """
         logger.info(f"Processing query: '{query}'")
         
-        initial_state: AgentState = {
-            "query": query,
-            "intent": "",
-            "circuit_result": {},
-            "regulations_result": {},
-            "final_response": "",
-            "messages": [HumanMessage(content=query)]
-        }
+        # Initialize conversation with highly optimized system prompt
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an ultra-fast F1 assistant. RULES:\n"
+                    "1. Call tools IMMEDIATELY in first response - NO explanation before calling\n"
+                    "2. For circuit queries: call get_circuit_image(location) ONCE only\n"
+                    "3. For regulation queries: call query_regulations(question) ONCE only\n"
+                    "4. For combined queries: call BOTH tools in PARALLEL (same response)\n"
+                    "5. After tool results: give SHORT 1-2 sentence summary\n"
+                    "6. NEVER ask follow-up questions - just use the tools\n"
+                    "7. Trust tool results - don't verify or double-check\n"
+                    "SPEED IS CRITICAL. Be decisive and concise."
+                )
+            },
+            {
+                "role": "user",
+                "content": query
+            }
+        ]
         
-        try:
-            final_state = self.app.invoke(initial_state)
+        tools_used = []
+        tool_results = {}
+        max_iterations = 2  # Hard limit: 1 for tools, 1 for response
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            logger.debug(f"Agent iteration {iteration}")
             
-            if final_state is None:
-                logger.error("Graph returned None - this should not happen")
+            try:
+                # Call model with tools
+                # Optimized for maximum speed with guardrails
+                is_gpt5 = self.model.startswith('gpt-5')
+                
+                if is_gpt5:
+                    # GPT-5: No parameter support, but still fast with good prompts
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        tools=self.tools,
+                        parallel_tool_calls=True  # GPT-5 supports parallel calls
+                    )
+                else:
+                    # GPT-4o: Full optimization
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        tools=self.tools,
+                        temperature=0.05,  # Ultra-low = fastest, most deterministic
+                        max_tokens=150,  # Very strict limit (was 300)
+                        parallel_tool_calls=True,  # Call multiple tools at once
+                        top_p=0.85,  # Focus on most likely tokens
+                        frequency_penalty=0.0,  # No penalty for speed
+                        presence_penalty=0.0  # No penalty for speed
+                    )
+                
+                message = response.choices[0].message
+                
+                # Check if agent wants to call tools
+                if not message.tool_calls:
+                    # Agent provided final answer
+                    logger.success(f"Agent completed in {iteration} iterations")
+                    return {
+                        "type": "success",
+                        "content": message.content,
+                        "tools_used": tools_used,
+                        "tool_results": tool_results,
+                        "metadata": {
+                            "iterations": iteration,
+                            "model": self.model,
+                            "query": query
+                        }
+                    }
+                
+                # Add assistant message to conversation
+                messages.append({
+                    "role": "assistant",
+                    "content": message.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
+                })
+                
+                # Execute tool calls (parallel execution)
+                tool_call_results = []
+                for tool_call in message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    
+                    logger.debug(f"Agent calling tool: {tool_name}({tool_args})")
+                    tools_used.append(tool_name)
+                    
+                    # Execute tool
+                    result = self._execute_tool(tool_name, tool_args)
+                    tool_results[tool_name] = result
+                    
+                    # Add tool result to conversation
+                    tool_call_results.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result)
+                    })
+                    
+                    logger.debug(f"Tool {tool_name} result: {result.get('type')}")
+                
+                # Add all tool results at once (more efficient)
+                messages.extend(tool_call_results)
+                
+                # Guardrail: If we have tool results and this is iteration 1,
+                # force final response in next iteration
+                if iteration == 1 and tool_results:
+                    messages.append({
+                        "role": "system",
+                        "content": (
+                            "FINAL RESPONSE NOW. Use tool results. "
+                            "1 sentence max. No explanations."
+                        )
+                    })
+                
+            except Exception as e:
+                logger.error(f"Agent error on iteration {iteration}: {e}")
                 return {
-                    "query": query,
-                    "intent": "error",
-                    "response": {
-                        "type": "error",
-                        "content": "Internal error: graph execution failed"
-                    },
+                    "type": "error",
+                    "content": f"Agent error: {str(e)}",
+                    "tools_used": tools_used,
                     "metadata": {
-                        "circuit_executed": False,
-                        "regulations_executed": False,
-                        "error": "Graph returned None"
+                        "error": str(e),
+                        "iteration": iteration,
+                        "query": query
                     }
                 }
-            
-            logger.success("Query processing complete")
-            
-            return {
-                "query": query,
-                "intent": final_state["intent"],
-                "response": final_state["final_response"],
-                "metadata": {
-                    "circuit_executed": bool(final_state.get("circuit_result")),
-                    "regulations_executed": bool(final_state.get("regulations_result"))
-                }
+        
+        # Max iterations reached
+        logger.warning(f"Agent reached max iterations ({max_iterations})")
+        return {
+            "type": "partial",
+            "content": "I needed to make too many tool calls. Please try rephrasing your query.",
+            "tools_used": tools_used,
+            "tool_results": tool_results,
+            "metadata": {
+                "iterations": max_iterations,
+                "reason": "max_iterations_reached",
+                "query": query
             }
-        except Exception as e:
-            logger.error(f"Error during query processing: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                "query": query,
-                "intent": "error",
-                "response": {
+        }
+
+    @traceable(name="execute_tool", tags=["tool-execution"])
+    def _execute_tool(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a tool function with given arguments.
+        Optimized for speed with minimal overhead.
+        
+        Args:
+            tool_name: Name of tool to execute
+            args: Arguments for tool
+            
+        Returns:
+            Tool execution result
+        """
+        logger.debug(f"Executing tool: {tool_name}")  # Changed to debug for less overhead
+        
+        try:
+            if tool_name == "get_circuit_image":
+                location = args.get("location", "")
+                result = self.circuit_tool.get_circuit_image(location)
+                # Only log if error for speed
+                if result.get('type') == 'error':
+                    logger.warning(f"Circuit tool error: {result.get('metadata', {}).get('status')}")
+                return result
+                
+            elif tool_name == "query_regulations":
+                question = args.get("question", "")
+                result = self.regulations_tool.query_regulations(question)
+                # Only log if error for speed
+                if result.get('type') == 'error':
+                    logger.warning(f"Regulations tool error: {result.get('metadata', {}).get('status')}")
+                return result
+                
+            else:
+                logger.error(f"Unknown tool: {tool_name}")
+                return {
                     "type": "error",
-                    "content": f"Error processing query: {str(e)}"
-                },
-                "metadata": {
-                    "circuit_executed": False,
-                    "regulations_executed": False,
-                    "error": str(e)
+                    "content": f"Unknown tool: {tool_name}",
+                    "metadata": {"error": "unknown_tool"}
                 }
+                
+        except Exception as e:
+            logger.error(f"Tool execution failed: {e}")
+            return {
+                "type": "error",
+                "content": str(e),
+                "metadata": {"error": str(e), "tool": tool_name}
             }
 
 
-# Singleton
-_orchestrator_instance = None
+# Singleton instance
+_orchestrator_instance: Optional[Orchestrator] = None
 
 
-def get_orchestrator() -> F1AgentOrchestrator:
-    """Get or create singleton instance."""
+def get_orchestrator() -> Orchestrator:
+    """Get or create singleton instance of Orchestrator."""
     global _orchestrator_instance
     
     if _orchestrator_instance is None:
-        _orchestrator_instance = F1AgentOrchestrator()
+        _orchestrator_instance = Orchestrator()
     
     return _orchestrator_instance
