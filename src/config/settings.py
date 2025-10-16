@@ -10,7 +10,7 @@ class Settings:
     
     # OpenAI
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o")
     
     # AWS Bedrock
     aws_access_key_id: str = os.getenv("AWS_ACCESS_KEY_ID", "")

@@ -1,7 +1,7 @@
 """
 Circuit image retrieval tool.
-Simplified for GPT-5 Mini agent - no hardcoded aliases.
-GPT-5 Mini understands location queries naturally.
+Simplified for Orchestrator agent - no hardcoded aliases.
+GPT-4o understands location queries naturally.
 Uses LangSmith for tracing.
 """
 
@@ -15,7 +15,7 @@ class CircuitRetrieval:
     """
     Tool for retrieving F1 circuit images from the f1_2025_circuit_maps directory.
     
-    Designed for GPT-5 Mini agent with tool calling.
+    Designed for Orchestrator agent with tool calling.
     No hardcoded aliases - agent understands locations naturally.
     """
 
@@ -49,8 +49,8 @@ class CircuitRetrieval:
         """
         Retrieve circuit image path based on location.
         
-        Simplified for GPT-5 Mini agent - just maps location to file.
-        GPT-5 Mini handles query understanding and provides normalized location.
+        Simplified for Orchestrator agent - just maps location to file.
+        Orchestrator handles query understanding and provides normalized location.
         
         Args:
             location: Circuit location (e.g., "Monaco", "Las Vegas", "Great Britain")
@@ -114,10 +114,10 @@ class CircuitRetrieval:
         Normalize location to match file naming convention.
         
         Simplified - just matches against official names.
-        GPT-5 Mini should provide reasonably normalized names.
+        GPT-4o should provide reasonably normalized names.
         
         Args:
-            location: Location string from GPT-5 Mini
+            location: Location string from Orchestrator agent
             
         Returns:
             Normalized location name or None

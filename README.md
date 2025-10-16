@@ -1,4 +1,27 @@
-# F1 Service System v1
+# F1 Service System 🏎️
+
+AI-powered F1 information service with intelligent orchestration, circuit visualization, and regulations knowledge base.
+
+**Theme:** Red Bull Racing (Red & Black) - Futuristic, Modern, Minimalistic
+
+## 🎯 Features
+
+- **🏁 Circuit Visualization**: Display 24 F1 2025 circuit maps with futuristic UI
+- **📋 Regulations Knowledge Base**: Query FIA regulations via AWS Bedrock RAG
+- **🤖 Intelligent Orchestration**: GPT-4o agent with native tool calling
+- **⚡ High Performance**: 2-13s response times with aggressive optimizations
+- **🎨 Modern UI**: Red Bull Racing themed Streamlit interface
+- **🧠 Conversation Memory**: Natural follow-up questions with context awareness
+- **📊 LangSmith Tracing**: Full observability and debugging
+
+## 🚀 Quick Start
+
+### Launch UI (Recommended)
+```bash
+./run_ui.sh
+```
+
+Then open your browser to: `http://localhost:8501`ystem v1
 
 An intelligent F1 information service powered by **GPT-5 Mini agent** with tool calling. The system provides circuit maps and regulations information through natural language queries.
 

@@ -98,7 +98,7 @@ class Orchestrator:
                 "function": {
                     "name": "query_regulations",
                     "description": (
-                        "Query FIA F1 regulations. Use for rules, points, DRS, safety car, penalties, etc. "
+                        "Query FIA F1 regulations including Financial Regulations, Power Unit Financial Regulations, Sporting Regulations, and Technical Regulations. Use for rules, points, DRS, safety car, penalties, etc. "
                         "Returns official FIA regulation text with citations. Fast: 4-5s response."
                     ),
                     "parameters": {
@@ -115,16 +115,24 @@ class Orchestrator:
             }
         ]
 
-    @traceable(name="gpt5_agent_query", tags=["agent", "gpt5", "tool-calling"])
-    def process_query(self, query: str) -> Dict[str, Any]:
+    @traceable(name="Orchestrator-process_query", tags=["agent", "orchestrator", "tool-calling"])
+    def process_query(
+        self, 
+        query: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None
+    ) -> Dict[str, Any]:
         """
-        Process user query using GPT-5 Mini with tool calling.
+        Process user query using Orchestrator agent with tool calling.
         
         Agent decides which tools to call based on query understanding.
-        No hardcoded routing logic - pure AI reasoning.
+        Supports conversation memory for follow-up questions.
         
         Args:
             query: User's F1 information query
+            conversation_history: Previous conversation messages for context
+                                Format: [{"role": "user", "content": "..."}, 
+                                        {"role": "assistant", "content": "..."}, ...]
+                                Typically provided by Streamlit session state
             
         Returns:
             Dict with response, tools_used, and metadata
@@ -144,14 +152,33 @@ class Orchestrator:
                     "5. After tool results: give SHORT 1-2 sentence summary\n"
                     "6. NEVER ask follow-up questions - just use the tools\n"
                     "7. Trust tool results - don't verify or double-check\n"
+                    "8. Use conversation history for context on follow-up questions\n"
                     "SPEED IS CRITICAL. Be decisive and concise."
                 )
-            },
-            {
-                "role": "user",
-                "content": query
             }
         ]
+        
+        # Add conversation history if provided (limit to last 10 exchanges)
+        if conversation_history:
+            # Keep only last 20 messages (10 user + 10 assistant exchanges)
+            recent_history = conversation_history[-20:]
+            logger.debug(f"Including {len(recent_history)} previous messages for context")
+            
+            # Add history to messages
+            for msg in recent_history:
+                # Skip if this is the current query (will be added below)
+                if msg.get("role") == "user" and msg.get("content") == query:
+                    continue
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        # Add current user query
+        messages.append({
+            "role": "user",
+            "content": query
+        })
         
         tools_used = []
         tool_results = {}
