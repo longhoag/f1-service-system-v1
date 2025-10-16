@@ -3,7 +3,7 @@
 ## Project Overview
 This is an F1 information service system combining LLM agents, RAG (Retrieval-Augmented Generation), and circuit visualization. The system routes user queries to appropriate tools: circuit image retrieval or F1 regulations knowledge base.
 
-**Architecture Pattern**: LLM Agent with Tool Calling
+**Architecture Pattern**: LLM Agent with Tool Calling. Use Langgraph and LangSmith
 - User query → OpenAI LLM Agent → Tool routing → Response aggregation → Streamlit UI
 
 ## Core Components (Planned)
@@ -41,7 +41,7 @@ poetry shell                   # Activate virtual environment
 ```
 
 ### Logging Convention
-**NEVER use `print()` statements** - use Loguru exclusively:
+**NEVER use `print()` statements** - use Loguru exclusively with color-coded log levels:
 ```python
 from loguru import logger
 
@@ -100,6 +100,16 @@ def tool_name(query: str) -> Dict[str, Any]:
 - Use `boto3` for Bedrock Knowledge Base
 - Configure Pinecone client with appropriate index name
 - Implement proper error handling for API failures
+
+### Bedrock Model Configuration
+- **Embedding Model**: Amazon Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`)
+  - Used by Bedrock Knowledge Base for semantic chunking and vector storage
+- **Generation Model**: Anthropic Claude 3 Sonnet (`anthropic.claude-3-sonnet-20240229-v1:0`)
+  - Used for RetrieveAndGenerate API calls
+  - NOTE: Claude 3.5 Sonnet v2 requires inference profiles and is NOT supported for on-demand RetrieveAndGenerate
+  - Always use settings.bedrock_generation_model from environment variables
+- **Rate Limiting**: Implement 10-15 second delays between requests to avoid throttling
+- **Retry Logic**: Use `tenacity` library for handling 429 ThrottlingException errors
 
 ## Development Workflow
 

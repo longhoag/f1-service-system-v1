@@ -1,59 +1,48 @@
-"""
-Application settings and environment variable management.
-"""
-
+"""Configuration settings loaded from environment variables"""
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 from loguru import logger
 
-# Load environment variables from .env file
 load_dotenv()
 
-
 class Settings:
-    """
-    Application configuration loaded from environment variables.
-    """
-
-    # OpenAI Configuration
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-
-    # AWS Bedrock Configuration
-    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
-    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
-    BEDROCK_KNOWLEDGE_BASE_ID: str = os.getenv("BEDROCK_KNOWLEDGE_BASE_ID", "")
-
-    # Pinecone Configuration
-    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
-    PINECONE_ENVIRONMENT: str = os.getenv("PINECONE_ENVIRONMENT", "")
-    PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "f1-regulations")
-
-    # Application Configuration
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    """Application settings from environment variables"""
     
-    # Circuit maps directory
-    CIRCUIT_MAPS_DIR: Path = Path(__file__).parent.parent.parent / "f1_2025_circuit_maps"
-
-    @classmethod
-    def validate(cls):
-        """Validate that required environment variables are set."""
-        required_vars = [
-            "OPENAI_API_KEY",
-            "AWS_ACCESS_KEY_ID", 
-            "AWS_SECRET_ACCESS_KEY",
-            "PINECONE_API_KEY"
-        ]
+    # OpenAI
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+    
+    # AWS Bedrock
+    aws_access_key_id: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    aws_secret_access_key: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    aws_region: str = os.getenv("AWS_REGION", "us-east-1")
+    bedrock_kb_id: str = os.getenv("BEDROCK_KNOWLEDGE_BASE_ID", "")
+    bedrock_embedding_model: str = os.getenv("BEDROCK_EMBEDDING_MODEL", "amazon.titan-embed-text-v2:0")
+    bedrock_generation_model: str = os.getenv("BEDROCK_GENERATION_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0")
+    
+    # Pinecone
+    pinecone_api_key: str = os.getenv("PINECONE_API_KEY", "")
+    pinecone_environment: str = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
+    pinecone_index_name: str = os.getenv("PINECONE_INDEX_NAME", "f1-regulations")
+    
+    # Application
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    
+    def validate(self) -> bool:
+        """Validate required settings are present"""
+        required = {
+            "AWS_ACCESS_KEY_ID": self.aws_access_key_id,
+            "AWS_SECRET_ACCESS_KEY": self.aws_secret_access_key,
+            "BEDROCK_KNOWLEDGE_BASE_ID": self.bedrock_kb_id,
+        }
         
-        missing_vars = [var for var in required_vars if not getattr(cls, var)]
+        missing = [key for key, value in required.items() if not value]
         
-        if missing_vars:
-            logger.warning("Missing required environment variables: {}", missing_vars)
+        if missing:
+            logger.error(f"Missing required environment variables: {', '.join(missing)}")
             return False
         
+        logger.info("✅ All required settings validated")
         return True
 
-
-# Create global settings instance
 settings = Settings()
