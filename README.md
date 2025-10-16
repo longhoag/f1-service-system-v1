@@ -162,9 +162,9 @@ graph LR
     CircuitTool --> CircuitMaps
     RAGTool --> BedrockKB
     
-    Orchestrator -.->|@traceable| LangSmith
-    CircuitTool -.->|@traceable| LangSmith
-    RAGTool -.->|@traceable| LangSmith
+    Orchestrator -.->|traceable| LangSmith
+    CircuitTool -.->|traceable| LangSmith
+    RAGTool -.->|traceable| LangSmith
     
     Orchestrator -.->|logger| Loguru
     CircuitTool -.->|logger| Loguru
