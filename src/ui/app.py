@@ -13,6 +13,7 @@ import streamlit as st
 from pathlib import Path
 import sys
 import time
+import base64
 from PIL import Image
 
 # Add project root to path
@@ -31,22 +32,20 @@ st.set_page_config(
 )
 
 # Custom CSS - Red Bull Racing Theme (Red & Black)
+# Note: Formula1 fonts are loaded via .streamlit/config.toml
 st.markdown("""
 <style>
-    /* Import F1 Font */
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
-    
     /* Main background - Dark theme */
     .stApp {
         background: linear-gradient(135deg, #0a0a0a 0%, #1a0000 100%);
         color: #ffffff;
-        font-family: 'Rajdhani', sans-serif;
+        font-family: 'Formula1', sans-serif;
     }
     
     /* Title styling - Futuristic */
     h1 {
-        font-family: 'Orbitron', sans-serif;
-        font-weight: 900;
+        font-family: 'Formula1', sans-serif;
+        font-weight: 700;
         font-size: 3.5rem !important;
         background: linear-gradient(135deg, #dc0000 0%, #ff4444 50%, #dc0000 100%);
         -webkit-background-clip: text;
@@ -61,13 +60,13 @@ st.markdown("""
     
     /* Subtitle */
     .subtitle {
-        font-family: 'Rajdhani', sans-serif;
+        font-family: 'Formula1', sans-serif;
         font-size: 1.2rem;
         text-align: center;
         color: #888888;
         letter-spacing: 2px;
         margin-bottom: 2rem;
-        font-weight: 300;
+        font-weight: 400;
     }
     
     /* Chat input box - Futuristic red glow */
@@ -80,9 +79,9 @@ st.markdown("""
     
     .stChatInput input {
         color: #ffffff !important;
-        font-family: 'Rajdhani', sans-serif;
+        font-family: 'Formula1', sans-serif;
         font-size: 1.1rem !important;
-        font-weight: 500;
+        font-weight: 400;
     }
     
     .stChatInput input::placeholder {
@@ -94,29 +93,68 @@ st.markdown("""
         background: rgba(20, 20, 20, 0.6) !important;
         border-radius: 15px !important;
         border: 1px solid rgba(220, 0, 0, 0.2) !important;
-        padding: 1.5rem !important;
-        margin: 1rem 0 !important;
+        padding: 2.5rem !important;
+        margin: 1.5rem 0 !important;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
         backdrop-filter: blur(10px);
+        min-height: 80px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    /* Chat message content container */
+    [data-testid="stChatMessageContent"] {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        padding: 1rem !important;
     }
     
     /* User message - Red accent */
     [data-testid="stChatMessageContent"]:has(.user-message) {
         border-left: 4px solid #dc0000 !important;
+        background: rgba(220, 0, 0, 0.05) !important;
+        border-radius: 10px !important;
     }
     
     /* Assistant message - Dark with subtle glow */
     [data-testid="stChatMessageContent"]:has(.assistant-message) {
         border-left: 4px solid #444444 !important;
+        background: rgba(68, 68, 68, 0.05) !important;
+        border-radius: 10px !important;
     }
     
     /* Message text */
     .stMarkdown {
-        font-family: 'Rajdhani', sans-serif;
-        font-size: 1.1rem;
-        line-height: 1.6;
+        font-family: 'Formula1', sans-serif;
+        font-size: 1.4rem !important;
+        line-height: 1.8 !important;
         color: #e0e0e0;
         font-weight: 400;
+        margin: 0 !important;
+        padding: 0.5rem 0 !important;
+    }
+    
+    /* User and Assistant message styling */
+    .user-message, .assistant-message {
+        font-family: 'Formula1', sans-serif !important;
+        font-size: 1.4rem !important;
+        line-height: 1.8 !important;
+        padding: 1rem !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: 60px !important;
+    }
+    
+    .user-message {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+    
+    .assistant-message {
+        color: #e0e0e0 !important;
+        font-weight: 400 !important;
     }
     
     /* Images - Futuristic frame */
@@ -134,7 +172,7 @@ st.markdown("""
         border: none;
         border-radius: 8px;
         padding: 0.75rem 2rem;
-        font-family: 'Orbitron', sans-serif;
+        font-family: 'Formula1', sans-serif;
         font-weight: 700;
         font-size: 1rem;
         letter-spacing: 1px;
@@ -166,7 +204,7 @@ st.markdown("""
     
     .stMetric label {
         color: #888888 !important;
-        font-family: 'Orbitron', sans-serif;
+        font-family: 'Formula1', sans-serif;
         font-size: 0.9rem;
         letter-spacing: 1px;
         text-transform: uppercase;
@@ -174,7 +212,7 @@ st.markdown("""
     
     .stMetric [data-testid="stMetricValue"] {
         color: #dc0000 !important;
-        font-family: 'Orbitron', sans-serif;
+        font-family: 'Formula1', sans-serif;
         font-weight: 700;
         font-size: 2rem;
     }
@@ -189,8 +227,8 @@ st.markdown("""
         background: rgba(20, 20, 20, 0.6);
         border: 1px solid rgba(220, 0, 0, 0.3);
         border-radius: 8px;
-        font-family: 'Rajdhani', sans-serif;
-        font-weight: 600;
+        font-family: 'Formula1', sans-serif;
+        font-weight: 400;
         color: #ffffff;
     }
     
@@ -205,7 +243,7 @@ st.markdown("""
         border: 1px solid rgba(220, 0, 0, 0.3);
         border-radius: 10px;
         color: #ffffff;
-        font-family: 'Rajdhani', sans-serif;
+        font-family: 'Formula1', sans-serif;
     }
     
     /* Code blocks - Terminal style */
@@ -265,29 +303,105 @@ def init_orchestrator():
 
 def display_welcome():
     """Display welcome screen with F1 branding."""
-    st.markdown("""
-    <h1>🏎️ F1 SERVICE SYSTEM</h1>
-    <div class="subtitle">POWERED BY AI · REAL-TIME INTELLIGENCE</div>
-    <div class="racing-stripe"></div>
-    """, unsafe_allow_html=True)
+    # Load F1 logo as background
+    logo_path = Path(__file__).parent / "f1-logo.avif"
+    
+    if logo_path.exists():
+        import base64
+        with open(logo_path, "rb") as img_file:
+            img_bytes = img_file.read()
+            img_base64 = base64.b64encode(img_bytes).decode()
+        
+        # Fullscreen background logo with centered title
+        st.markdown(f"""
+        <div style='
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background-image: url(data:image/avif;base64,{img_base64});
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            overflow: hidden;
+        '>
+            <div style='
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(26,0,0,0.85) 100%);
+            '></div>
+            <h1 style='
+                position: relative;
+                z-index: 10;
+                margin: 0;
+                padding: 0;
+            '>F1 SERVICE SYSTEM</h1>
+        </div>
+        <div class="racing-stripe"></div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback without background image
+        st.markdown("""
+        <h1>F1 SERVICE SYSTEM</h1>
+        <div class="racing-stripe"></div>
+        """, unsafe_allow_html=True)
     
     # Welcome message in columns
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("""
+        # Load Max Verstappen image for READY TO ASSIST frame
+        max_img_path = Path(__file__).parent / "max.avif"
+        audio_path = project_root / "music" / "tu-tu-tu-du-max-verstappen.mp3"
+        
+        # Load and encode the image
+        if max_img_path.exists():
+            with open(max_img_path, "rb") as img_file:
+                max_bytes = img_file.read()
+                max_base64 = base64.b64encode(max_bytes).decode()
+                
+            # Display the Max image
+            st.markdown(f"""
+            <div style='text-align: center;'>
+                <img src="data:image/avif;base64,{max_base64}"
+                     style="width: 80%; height: 900px; object-fit: cover;
+                            object-position: center top; margin-bottom: 1rem;
+                            border-radius: 10px;">
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Streamlit button for manual audio playback
+            col_left, col_center, col_right = st.columns([1, 1, 1])
+            with col_center:
+                if st.button("It's Verstappen Time!", use_container_width=True, type="primary"):
+                    if audio_path.exists():
+                        try:
+                            with open(audio_path, "rb") as audio_file:
+                                audio_bytes = audio_file.read()
+                            
+                            # Play audio using Streamlit's native method
+                            st.audio(audio_bytes, format="audio/mpeg", autoplay=True)
+                        except Exception as e:
+                            st.error(f"Error playing audio: {e}")
+                    else:
+                        st.error("Audio file not found!")
+        
+        st.markdown(f"""
         <div style='text-align: center; padding: 2rem; background: rgba(20,20,20,0.6); 
-                    border-radius: 15px; border: 1px solid rgba(220,0,0,0.3);'>
-            <h3 style='color: #dc0000; font-family: Orbitron; margin-bottom: 1rem;'>
+                    border-radius: 15px; border: 1px solid rgba(220,0,0,0.3); margin-top: 1rem;'>
+            <h3 style='color: #dc0000; font-family: Formula1; margin-bottom: 1rem;'>
                 READY TO ASSIST
             </h3>
             <p style='color: #cccccc; font-size: 1.1rem; line-height: 1.8;'>
                 • Query F1 circuit layouts and maps<br>
                 • Access official FIA regulations<br>
                 • Get instant, accurate answers<br>
-            </p>
-            <p style='color: #888888; font-size: 0.9rem; margin-top: 1.5rem;'>
-                Powered by GPT-4o + AWS Bedrock
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -298,12 +412,16 @@ def display_circuit_image(image_path: str, location: str):
     try:
         image = Image.open(image_path)
         
-        # Display with caption
-        st.image(
-            image,
-            caption=f"🏁 {location.replace('_', ' ')} Circuit",
-            use_container_width=True
-        )
+        # Use columns to create 90% width effect (5% padding on each side)
+        col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
+        
+        with col2:
+            # Display with caption (no source path shown) - 90% effective width
+            st.image(
+                image,
+                caption=f"🏁 {location.replace('_', ' ')} Circuit",
+                use_container_width=True
+            )
         
     except Exception as e:
         st.error(f"Failed to load circuit image: {e}")
@@ -316,8 +434,27 @@ def format_response_with_metadata(result: dict):
     metadata = result.get('metadata', {})
     tool_results = result.get('tool_results', {})
     
-    # Display main content
-    st.markdown(f"<div class='assistant-message'>{content}</div>", unsafe_allow_html=True)
+    # Filter out image paths from content (remove lines containing circuit map paths)
+    if content:
+        lines = content.split('\n')
+        filtered_lines = []
+        for line in lines:
+            # Skip lines that look like file paths or source references
+            if not any(keyword in line.lower() for keyword in [
+                'f1_2025_circuit_maps',
+                '_circuit.webp',
+                'source:',
+                'image source:',
+                'path:',
+                '/volumes/',
+                'retrieved from:'
+            ]):
+                filtered_lines.append(line)
+        content = '\n'.join(filtered_lines).strip()
+    
+    # Display main content (filtered)
+    if content:
+        st.markdown(f"<div class='assistant-message'>{content}</div>", unsafe_allow_html=True)
     
     # Display circuit image if available
     if 'get_circuit_image' in tool_results:
@@ -374,6 +511,27 @@ def format_response_with_metadata(result: dict):
 def main():
     """Main Streamlit application."""
     
+    # Load custom chat avatars
+    user_avatar_path = Path(__file__).parent / "user-icon.png"
+    chatbot_avatar_path = Path(__file__).parent / "chatbot-icon.png"
+    
+    user_avatar = None
+    chatbot_avatar = None
+    
+    # Load user avatar
+    if user_avatar_path.exists():
+        try:
+            user_avatar = Image.open(user_avatar_path)
+        except Exception as e:
+            logger.error(f"Failed to load user avatar: {e}")
+    
+    # Load chatbot avatar
+    if chatbot_avatar_path.exists():
+        try:
+            chatbot_avatar = Image.open(chatbot_avatar_path)
+        except Exception as e:
+            logger.error(f"Failed to load chatbot avatar: {e}")
+    
     # Display welcome header
     display_welcome()
     
@@ -394,11 +552,12 @@ def main():
     
     # Display chat history
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            if message["role"] == "user":
+        if message["role"] == "user":
+            with st.chat_message("user", avatar=user_avatar):
                 st.markdown(f"<div class='user-message'>{message['content']}</div>",
                            unsafe_allow_html=True)
-            else:
+        else:
+            with st.chat_message("assistant", avatar=chatbot_avatar):
                 # Assistant message with full formatting
                 format_response_with_metadata(message.get('result', {}))
     
@@ -411,11 +570,11 @@ def main():
         })
         
         # Display user message
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=user_avatar):
             st.markdown(f"<div class='user-message'>{prompt}</div>", unsafe_allow_html=True)
         
         # Process query with orchestrator
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=chatbot_avatar):
             with st.spinner("🏎️ Processing..."):
                 start_time = time.time()
                 
@@ -468,7 +627,7 @@ def main():
     with st.sidebar:
         st.markdown("""
         <div style='text-align: center; padding: 1rem;'>
-            <h2 style='color: #dc0000; font-family: Orbitron;'>SYSTEM</h2>
+            <h2 style='color: #dc0000; font-family: Formula1;'>SYSTEM</h2>
             <div class="racing-stripe"></div>
         </div>
         """, unsafe_allow_html=True)
