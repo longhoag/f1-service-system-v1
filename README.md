@@ -1,4 +1,4 @@
-# F1 Service System 🏎️
+# F1 Service System 
 
 AI-powered Formula 1 information service combining **LLM orchestration**, **RAG (Retrieval-Augmented Generation)**, and **circuit visualization**. Built with GPT-4o, AWS Bedrock Knowledge Base.
 
@@ -19,7 +19,6 @@ AI-powered Formula 1 information service combining **LLM orchestration**, **RAG 
 - [Usage](#-usage)
 - [Project Structure](#-project-structure)
 - [Performance](#-performance)
-- [Development](#-development)
 - [Documentation](#-documentation)
 
 ---
@@ -59,7 +58,7 @@ graph TB
     CircuitTool --> Storage[(🗂️ Circuit Maps<br/>24 .webp files)]
     RAGTool --> Bedrock[☁️ AWS Bedrock<br/>Knowledge Base]
     Bedrock --> Pinecone[(📊 Pinecone Vector DB<br/>F1 Regulations)]
-    Bedrock --> Claude[🧠 Claude 3 Sonnet<br/>Generation Model]
+    Bedrock --> Claude[🧠 Claude 3 Haiku<br/>Generation Model]
     
     CircuitTool --> Orchestrator
     RAGTool --> Orchestrator
