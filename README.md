@@ -1,6 +1,6 @@
 # F1 Service System 🏎️
 
-AI-powered Formula 1 information service combining **LLM orchestration**, **RAG (Retrieval-Augmented Generation)**, and **circuit visualization**. Built with GPT-4o, AWS Bedrock Knowledge Base, and a futuristic Red Bull Racing-themed UI.
+AI-powered Formula 1 information service combining **LLM orchestration**, **RAG (Retrieval-Augmented Generation)**, and **circuit visualization**. Built with GPT-4o, AWS Bedrock Knowledge Base.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-green.svg)](https://platform.openai.com/)
@@ -35,7 +35,7 @@ The F1 Service System is an intelligent assistant that answers Formula 1 queries
 **Key Highlights:**
 - 🤖 **Agentic Architecture**: GPT-4o with native function calling
 - ⚡ **Fast Response**: 2-5s for circuit queries, 4-7s for regulations
-- 🎨 **Modern UI**: Red Bull Racing themed Streamlit interface with Formula 1 fonts
+- 🎨 **Modern UI**: F1 Racing themed Streamlit interface with Formula 1 fonts
 - 💬 **Conversation Memory**: Natural follow-up questions with context
 - 📊 **Full Observability**: LangSmith tracing for all operations
 
@@ -48,7 +48,7 @@ The F1 Service System is an intelligent assistant that answers Formula 1 queries
 ```mermaid
 graph TB
     User[👤 User Query] --> UI[🖥️ Streamlit UI<br/>Red Bull Theme]
-    UI --> Orchestrator[🤖 GPT-4o Orchestrator<br/>Function Calling]
+    UI --> Orchestrator[🤖 GPT-4o Orchestrator<br/>Function Calling<br/>Synthesize Response]
     
     Orchestrator --> Decision{Query Type?}
     
@@ -61,11 +61,11 @@ graph TB
     Bedrock --> Pinecone[(📊 Pinecone Vector DB<br/>F1 Regulations)]
     Bedrock --> Claude[🧠 Claude 3 Sonnet<br/>Generation Model]
     
-    CircuitTool --> Response[📤 Response Aggregation]
-    RAGTool --> Response
-    Both --> Response
+    CircuitTool --> Orchestrator
+    RAGTool --> Orchestrator
+    Both --> Orchestrator
     
-    Response --> UI
+    Orchestrator --> UI
     UI --> User
     
     Orchestrator -.->|Tracing| LangSmith[📈 LangSmith<br/>Observability]
@@ -183,7 +183,7 @@ graph LR
 
 ### 📚 Regulations Knowledge Base
 - **AWS Bedrock Integration**: RetrieveAndGenerate API
-- **Claude 3 Sonnet**: Advanced text generation
+- **Claude 3 Haiku**: Advanced and Fast text generation
 - **Pinecone Vector DB**: Semantic search over F1 regulations
 - **Citation Support**: Source references for answers
 - **Fast Responses**: 4-7s average query time
@@ -217,8 +217,7 @@ Then open: **http://localhost:8501**
 
 ```
 "Show me the Monaco circuit"
-"What are the DRS rules?"
-"Display Silverstone and explain the points system"
+"What are regulations on tyres"
 "What is the minimum car weight?"
 ```
 
@@ -363,7 +362,6 @@ f1-service-system-v1/
 |------------|--------------|--------------|
 | Circuit only | 2-3s | `get_circuit_image` |
 | Regulations only | 4-7s | `query_regulations` |
-| Hybrid query | 6-10s | Both tools |
 
 ### Bottlenecks
 
@@ -380,99 +378,6 @@ f1-service-system-v1/
 
 ---
 
-## 🛠️ Development
-
-### Coding Standards
-
-#### 1. Always Use Loguru (Never `print()`)
-
-```python
-from loguru import logger
-
-# Good ✓
-logger.info("Processing query: {}", user_query)
-logger.success("Tool executed successfully")
-logger.error("Failed to retrieve: {}", error)
-logger.debug("Intermediate result: {}", data)
-
-# Bad ✗
-print("Processing query:", user_query)
-```
-
-#### 2. Always Use Poetry (Never `pip`)
-
-```bash
-# Good ✓
-poetry add <package>
-poetry install
-poetry run python script.py
-
-# Bad ✗
-pip install <package>
-python script.py
-```
-
-#### 3. Add Type Hints
-
-```python
-def query_regulations(
-    question: str,
-    num_results: int = 5
-) -> Dict[str, Any]:
-    """Query F1 regulations."""
-    pass
-```
-
-#### 4. Use LangSmith Tracing
-
-```python
-from langsmith import traceable
-
-@traceable(name="my_function", tags=["tool", "bedrock"])
-def my_function(query: str) -> dict:
-    """Traced function."""
-    pass
-```
-
-### Running Tests
-
-```bash
-# Test orchestrator
-poetry run python scripts/test_orchestrator.py
-
-# Test individual tools
-poetry run python -c "from src.tools.circuit_retrieval import get_circuit_retrieval; print(get_circuit_retrieval().get_circuit_image('Monaco'))"
-
-# Test model performance
-poetry run python scripts/test_model_latency.py
-```
-
-### Project Configuration
-
-#### Streamlit Theme (`.streamlit/config.toml`)
-
-```toml
-[server]
-enableStaticServing = true
-
-[[theme.fontFaces]]
-family = "Formula1"
-url = "app/static/Formula1-Regular_web_0.ttf"
-weight = 400
-
-[theme]
-font = "Formula1"
-primaryColor = "#dc0000"
-backgroundColor = "#0a0a0a"
-textColor = "#ffffff"
-```
-
-#### Environment Variables
-
-See `.env.example` or [Setup](#-setup) section.
-
----
-
 ## 📖 Documentation
 
 ### Additional Resources
@@ -480,80 +385,6 @@ See `.env.example` or [Setup](#-setup) section.
 - **[Architecture Decision](docs/ACCURACY_COMPARISON.md)**: Why RetrieveAndGenerate vs Retrieve + Generate
 - **[Model Comparison](docs/MODEL_COMPARISON.md)**: Performance across different models
 - **[GPT-4o vs GPT-4o-mini](docs/)**: Speed vs intelligence tradeoffs
-
-### LangSmith Traces
-
-View all operations: **https://smith.langchain.com/**
-
-**Traced Operations:**
-- `gpt4o_orchestrator`: Main orchestration logic
-- `get_circuit_image`: Circuit retrieval
-- `query_regulations`: Bedrock RAG queries
-
----
-
-## 🎯 Roadmap
-
-### ✅ Completed
-
-- [x] GPT-4o orchestrator with function calling
-- [x] Circuit image retrieval (24 circuits)
-- [x] AWS Bedrock RAG integration
-- [x] Streamlit UI with Red Bull theme
-- [x] Formula 1 fonts integration
-- [x] Custom avatars and theme music
-- [x] Conversation memory
-- [x] LangSmith tracing
-- [x] Comprehensive logging
-
-### 🚧 In Progress
-
-- [ ] Improved citation tracing for retrieved chunks
-- [ ] Response streaming for better UX
-
-### 📝 Planned
-
-- [ ] Race results and standings data
-- [ ] Driver and team information
-- [ ] Calendar and schedule queries
-- [ ] Historical F1 data integration
-- [ ] Tool result caching
-- [ ] Parallel tool execution optimization
-
----
-
-## 🏎️ Architecture Evolution
-
-### Previous Version (LangGraph-based)
-
-❌ **Problems:**
-- Hardcoded intent classification
-- 60+ location aliases manually maintained
-- Keyword-based routing (brittle)
-- StateGraph complexity
-
-### Current Version (GPT-4o Function Calling)
-
-✅ **Benefits:**
-- Natural language understanding
-- Zero hardcoded aliases
-- Intelligent tool routing
-- Self-correcting behavior
-- Easier maintenance
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Use **Poetry** for dependencies
-2. Use **Loguru** for logging (never `print`)
-3. Add **type hints** to all functions
-4. Include **docstrings** for public methods
-5. Add **@traceable** for key operations
-6. Update **tests** for new features
-7. Update **documentation**
 
 ---
 
@@ -585,7 +416,5 @@ This project is licensed under the [MIT License](LICENSE).
 <div align="center">
 
 **🏎️ Built with ❤️ for Formula 1 fans 🏎️**
-
-*Powered by GPT-4o, AWS Bedrock, and Red Bull Racing spirit*
 
 </div>

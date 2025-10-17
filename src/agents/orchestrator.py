@@ -130,9 +130,9 @@ class Orchestrator:
         Args:
             query: User's F1 information query
             conversation_history: Previous conversation messages for context
-                                Format: [{"role": "user", "content": "..."}, 
-                                        {"role": "assistant", "content": "..."}, ...]
-                                Typically provided by Streamlit session state
+            Format: [{"role": "user", "content": "..."}, 
+                    {"role": "assistant", "content": "..."}, ...]
+            Typically provided by Streamlit session state
             
         Returns:
             Dict with response, tools_used, and metadata
