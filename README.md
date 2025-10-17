@@ -182,12 +182,12 @@ The F1 regulations knowledge base is built through a comprehensive document proc
 ```mermaid
 graph LR
     subgraph Input[📄 Input Stage]
-        PDFs[F1 Regulation PDFs<br/>FIA Technical & Sporting<br/>Regulations]
+        PDFs[F1 Regulation PDFs<br/>FIA Technical and Sporting<br/>Regulations]
     end
     
     subgraph Extraction[📖 Text Extraction]
         Textract[AWS Textract<br/>Layout Analysis]
-        Layout[Document Layout<br/>Tables, Headers, Lists]
+        Layout[Document Layout<br/>Tables Headers Lists]
     end
     
     subgraph Processing[🔧 Text Processing]
@@ -196,7 +196,7 @@ graph LR
     end
     
     subgraph Chunking[✂️ Intelligent Chunking]
-        Semantic[Semantic Chunking<br/>Context-aware splits<br/>Preserve meaning<br/>Optimal size (512 tokens)]
+        Semantic[Semantic Chunking<br/>Context-aware splits<br/>Preserve meaning<br/>Optimal size 512 tokens]
     end
     
     subgraph Vectorization[🧮 Embedding]
