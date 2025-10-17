@@ -82,6 +82,57 @@ graph TB
     style RAGTool fill:#1a1a1a,stroke:#dc0000,stroke-width:2px,color:#fff
     style LangSmith fill:#4a4a4a,stroke:#dc0000,stroke-width:1px,color:#fff
 ```
+### Document Processing Pipeline (Batch)
+
+The F1 regulations knowledge base is built through a comprehensive document processing pipeline that transforms raw PDF documents into searchable vector embeddings.
+
+```mermaid
+graph LR
+    subgraph Input[📄 Input Stage]
+        PDFs[F1 Regulation PDFs]
+    end
+    
+    subgraph Extraction[📖 Text Extraction]
+        Textract[AWS Textract<br/>Layout Analysis]
+    end
+    
+    subgraph Processing[🔧 Text Processing]
+        Geometry[Geometry Parsing<br/>Preserve Structure]
+        Normalize[Text Normalization<br/>Clean whitespace<br/>Fix font mismatches]
+    end
+    
+    subgraph Chunking[✂️ Chunking]
+        Semantic[Semantic Chunking<br/>Size 300 tokens<br/>Threshold split: 75%]
+    end
+    
+    subgraph Vectorization[🧮 Embedding]
+        Titan[Amazon Titan<br/>Text Embeddings V2<br/>dimension: 1024]
+    end
+    
+    subgraph Storage[💾 Vector Storage]
+        Pinecone[Pinecone Vector DB]
+    end
+    
+    subgraph Retrieval[🔍 Query Stage]
+        BedrockKB[AWS Bedrock<br/>Knowledge Base<br/>RetrieveAndGenerate API]
+    end
+    
+    PDFs --> Textract
+    Textract --> Geometry
+    Geometry --> Normalize
+    Normalize --> Semantic
+    Semantic --> Titan
+    Titan --> Pinecone
+    Pinecone --> BedrockKB
+    
+    style PDFs fill:#1a1a1a,stroke:#dc0000,stroke-width:2px,color:#fff
+    style Textract fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
+    style Normalize fill:#4a4a4a,stroke:#dc0000,stroke-width:2px,color:#fff
+    style Semantic fill:#4a4a4a,stroke:#dc0000,stroke-width:2px,color:#fff
+    style Titan fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
+    style Pinecone fill:#000,stroke:#00d4ff,stroke-width:2px,color:#00d4ff
+    style BedrockKB fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
+```
 
 ### Data Flow Diagram
 
@@ -174,108 +225,6 @@ graph LR
     CircuitTool -.->|logger| Loguru
     RAGTool -.->|logger| Loguru
 ```
-
-### Document Processing Pipeline (Batch)
-
-The F1 regulations knowledge base is built through a comprehensive document processing pipeline that transforms raw PDF documents into searchable vector embeddings.
-
-```mermaid
-graph LR
-    subgraph Input[📄 Input Stage]
-        PDFs[F1 Regulation PDFs<br/>FIA Technical and Sporting<br/>Regulations]
-    end
-    
-    subgraph Extraction[📖 Text Extraction]
-        Textract[AWS Textract<br/>Layout Analysis]
-        Layout[Document Layout<br/>Tables Headers Lists]
-    end
-    
-    subgraph Processing[🔧 Text Processing]
-        Geometry[Geometry Alignment<br/>Preserve Structure]
-        Normalize[Text Normalization<br/>Clean whitespace<br/>Fix font mismatches<br/>Remove artifacts]
-    end
-    
-    subgraph Chunking[✂️ Intelligent Chunking]
-        Semantic[Semantic Chunking<br/>Context-aware splits<br/>Preserve meaning<br/>Optimal size 512 tokens]
-    end
-    
-    subgraph Vectorization[🧮 Embedding]
-        Titan[Amazon Titan<br/>Text Embeddings V2<br/>1024 dimensions]
-    end
-    
-    subgraph Storage[💾 Vector Storage]
-        Pinecone[Pinecone Vector DB<br/>Distributed Index<br/>Fast Similarity Search]
-    end
-    
-    subgraph Retrieval[🔍 Query Stage]
-        BedrockKB[AWS Bedrock<br/>Knowledge Base<br/>RetrieveAndGenerate API]
-    end
-    
-    PDFs --> Textract
-    Textract --> Layout
-    Layout --> Geometry
-    Geometry --> Normalize
-    Normalize --> Semantic
-    Semantic --> Titan
-    Titan --> Pinecone
-    Pinecone --> BedrockKB
-    
-    style PDFs fill:#1a1a1a,stroke:#dc0000,stroke-width:2px,color:#fff
-    style Textract fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
-    style Normalize fill:#4a4a4a,stroke:#dc0000,stroke-width:2px,color:#fff
-    style Semantic fill:#4a4a4a,stroke:#dc0000,stroke-width:2px,color:#fff
-    style Titan fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
-    style Pinecone fill:#000,stroke:#00d4ff,stroke-width:2px,color:#00d4ff
-    style BedrockKB fill:#FF9900,stroke:#000,stroke-width:2px,color:#000
-```
-
-**Pipeline Stages Explained:**
-
-1. **AWS Textract Layout Analysis**
-   - Extracts text while preserving document structure
-   - Identifies tables, headers, lists, and paragraphs
-   - Maintains reading order and hierarchy
-
-2. **Geometry Alignment**
-   - Aligns text blocks based on spatial coordinates
-   - Preserves multi-column layouts
-   - Reconstructs proper reading flow
-
-3. **Text Normalization**
-   - Removes excessive whitespace and line breaks
-   - Fixes font encoding issues
-   - Cleans OCR artifacts and special characters
-   - Standardizes formatting
-
-4. **Semantic Chunking**
-   - Context-aware text splitting (not arbitrary character limits)
-   - Keeps related content together (rules, articles, sections)
-   - Optimal chunk size: ~512 tokens for retrieval accuracy
-   - Preserves document structure (article numbers, headings)
-
-5. **Amazon Titan Embeddings**
-   - Converts text chunks to 1024-dimensional vectors
-   - Captures semantic meaning, not just keywords
-   - Optimized for retrieval tasks
-
-6. **Pinecone Vector Storage**
-   - Distributed vector database for scalability
-   - Fast approximate nearest neighbor (ANN) search
-   - Metadata storage for citations and filtering
-
-7. **AWS Bedrock Knowledge Base**
-   - RetrieveAndGenerate API for end-to-end RAG
-   - Handles retrieval + generation in single call
-   - Returns answers with source citations
-
-**Key Benefits:**
-
-- ✅ **Layout-Aware**: Preserves tables and structured content
-- ✅ **Semantic Search**: Finds relevant answers, not just keyword matches
-- ✅ **Citation Support**: Traces answers back to source documents
-- ✅ **Scalable**: Handles large regulation document collections
-- ✅ **Fast Retrieval**: 2-3s average query time with Claude 3 Haiku
-
 ---
 
 ## ✨ Features
