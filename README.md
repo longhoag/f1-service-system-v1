@@ -192,11 +192,11 @@ graph LR
     
     subgraph Processing[🔧 Text Processing]
         Geometry[Geometry Alignment<br/>Preserve Structure]
-        Normalize[Text Normalization<br/>• Clean whitespace<br/>• Fix font mismatches<br/>• Remove artifacts]
+        Normalize[Text Normalization<br/>Clean whitespace<br/>Fix font mismatches<br/>Remove artifacts]
     end
     
     subgraph Chunking[✂️ Intelligent Chunking]
-        Semantic[Semantic Chunking<br/>• Context-aware splits<br/>• Preserve meaning<br/>• Optimal size (512 tokens)]
+        Semantic[Semantic Chunking<br/>Context-aware splits<br/>Preserve meaning<br/>Optimal size (512 tokens)]
     end
     
     subgraph Vectorization[🧮 Embedding]
